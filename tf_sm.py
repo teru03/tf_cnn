@@ -118,17 +118,30 @@ def train(args):
     y_ = tf.nn.softmax(pred)
 
     
+    global_step = tf.Variable(0, name="global_step", trainable=False)
     # Define loss and optimizer
-    cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(pred, y))
+    v13 = False
+    if tf.__version__ == "1.3.0":
+        print "version = ",tf.__version__
+        v13 = True
+
+    if v13:
+        cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=y))
+    else:
+        cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(pred, y))
     #cost = tf.reduce_mean(tf.square(pred - y))
     #cost = tf.reduce_mean(-tf.reduce_sum(y*tf.log(pred), reduction_indices=1))
-    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
+    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost,global_step)
     #optimizer = tf.train.MomentumOptimizer(0.01,0.97).minimize(cost)
     #optimizer = tf.train.GradientDescentOptimizer(1e-1).minimize(cost)
 
-    auc, op = tf.contrib.metrics.streaming_auc(y_,y)
 
-    tf.scalar_summary('cross entoroy', cost)
+    if v13:
+        auc, op = tf.metrics.auc(y_,y)
+        tf.summary.scalar('cross entoroy', cost)
+    else:
+        auc, op = tf.contrib.metrics.streaming_auc(y_,y)
+        tf.scalar_summary('cross entoroy', cost)
     
     # エポック数
     training_epochs = args.epoch
@@ -137,11 +150,14 @@ def train(args):
     # Launch the graph
     with tf.Session() as sess:
 
-        sess.run(tf.initialize_local_variables())
-        #sess.run( tf.global_variables_initializer() )
-
-        summary_writer = tf.train.SummaryWriter('tflogs', graph=sess.graph)
-        summary_op = tf.merge_all_summaries()
+        if v13:
+            sess.run( tf.global_variables_initializer() )
+            summary_writer = tf.summary.FileWriter('tflogs', graph=sess.graph)
+            summary_op = tf.summary.merge_all()
+        else:
+            sess.run(tf.initialize_local_variables())
+            summary_writer = tf.train.SummaryWriter('tflogs', graph=sess.graph)
+            summary_op = tf.merge_all_summaries()
 
         saver = tf.train.Saver()
         
@@ -174,9 +190,11 @@ def train(args):
 #           print x_train_batch
 #           print y_train_batch
             print "Epoch:", '%04d' % (epoch+1), "cost=", \
-                    "{:.9f}".format(avg_cost/step_size), \
-                    "auc=%f:" % op.eval(feed_dict={x: x_train_batch, y: y_train_batch}) 
+                    "{:.9f}".format(avg_cost/step_size)
+                    #"auc=%f:" % op.eval(feed_dict={x: x_train_batch, y: y_train_batch}) 
 
+            current_step = tf.train.global_step(sess, global_step)
+            saver.save(sess, './models/model', global_step=current_step)
             summary_str = sess.run(summary_op, feed_dict={x: x_train_batch,
                                                           y: y_train_batch})
             summary_writer.add_summary(summary_str, epoch)
@@ -188,9 +206,12 @@ def train(args):
         correct_prediction = tf.equal(tf.argmax(pred, 1), tf.argmax(y, 1))
         # Calculate accuracy
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
-        tf.scalar_summary("Accuracy on Train", accuracy)
+        if v13:
+            tf.summary.scalar("Accuracy on Train", accuracy)
+        else:
+            tf.scalar_summary("Accuracy on Train", accuracy)
         print "Accuracy:", accuracy.eval({x: x_test, y: y_test})
-        print "auc %f:" % auc.eval({x: x_test, y: y_test}) 
+        #print "auc %f:" % auc.eval({x: x_test, y: y_test}) 
         
         saver.save(sess, modelsfile)
         
