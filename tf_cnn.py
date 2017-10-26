@@ -29,6 +29,32 @@ usecolumns = []
 
 ngcol = ['id','target','ps_car_03_cat', 'ps_car_05_cat']
 
+def gini(array):
+    """Calculate the Gini coefficient of a numpy array."""
+    # based on bottom eq:
+    # http://www.statsdirect.com/help/generatedimages/equations/equation154.svg
+    # from:
+    # http://www.statsdirect.com/help/default.htm#nonparametric_methods/gini.htm
+    # All values are treated equally, arrays must be 1d:
+    array = array.flatten()
+    if np.amin(array) < 0:
+        # Values cannot be negative:
+        array -= np.amin(array)
+    # Values cannot be 0:
+    array += 0.0000001
+    # Values must be sorted:
+    array = np.sort(array)
+    # Index per array element:
+    index = np.arange(1,array.shape[0]+1)
+    # Number of array elements:
+    n = array.shape[0]
+    # Gini coefficient:
+    return ((np.sum((2 * index - n  - 1) * array)) / (n * np.sum(array)))
+
+def eval_gini(y_true, y_prob):
+    g = gini(y_prob)/gini(y_true)
+    return g
+
 
 # Create model
 def multilayer_perceptron(x, n_input):
@@ -200,8 +226,12 @@ def train(args):
             # Display logs per epoch step
 #           print x_train_batch
 #           print y_train_batch
+            predicted = sess.run(y_, feed_dict={x:x_np})
+            p = [ v[1] for v in predicted ]
+            g = eval_gini(np.array(df['target']+0.0),np.array(p))
             print "Epoch:", '%04d' % (epoch+1), "cost=", \
-                    "{:.9f}".format(avg_cost/step_size)
+                    "{:.9f}".format(avg_cost/step_size), \
+                    "{:.9f}".format(g)
                     #"auc=%f:" % op.eval(feed_dict={x: x_train_batch, y: y_train_batch}) 
 
             current_step = tf.train.global_step(sess, global_step)
