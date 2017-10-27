@@ -76,21 +76,21 @@ def multilayer_perceptron(x, n_input):
     # Store layers weight & bias
     # Hidden layer with RELU activation
     layer_1 = tf.add(tf.matmul(x, weights['h1']), biases['b1'])
-    #layer_1 = tf.nn.relu(layer_1)
+    layer_1 = tf.nn.relu(layer_1)
     #layer_1 = tf.nn.sigmoid(layer_1)
-    layer_1 = tf.nn.softmax(layer_1)
+    #layer_1 = tf.nn.softmax(layer_1)
 
     ##layer_1 = tf.nn.softmax(layer_1)
     ## Hidden layer with RELU activation
     layer_2 = tf.add(tf.matmul(layer_1, weights['h2']), biases['b2'])
-    #layer_2 = tf.nn.relu(layer_2)
+    layer_2 = tf.nn.relu(layer_2)
     #layer_2 = tf.nn.sigmoid(layer_2)
-    layer_2 = tf.nn.softmax(layer_2)
+    #layer_2 = tf.nn.softmax(layer_2)
 #
     layer_3 = tf.add(tf.matmul(layer_2, weights['h3']), biases['b3'])
+    layer_3 = tf.nn.relu(layer_3)
     ##layer_3 = tf.nn.sigmoid(layer_3)
-    #layer_3 = tf.nn.relu(layer_3)
-    layer_3 = tf.nn.softmax(layer_3)
+    #layer_3 = tf.nn.softmax(layer_3)
     ## Output layer with linear activation
     do = tf.nn.dropout(layer_3,0.8)
     out_layer = tf.add(tf.matmul(do, weights['out']), biases['out'])
@@ -113,7 +113,7 @@ def train(args):
             elif colname.find("reg"):
                 df[colname] = df[colname].replace(-1,wdesc['mean'])
             elif colname.find("bin"):
-                df[colname] = df[colname].replace(-1,wdesc['75%'])
+                df[colname] = df[colname].replace(-1,0)
 
     ngcol.extend([ cname for cname in df.columns if "_cat" in cname] )
     usecolumns = [ cname for cname in df.columns if cname not in ngcol ]
@@ -168,8 +168,8 @@ def train(args):
         cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(pred, y))
     #cost = tf.reduce_mean(tf.square(pred - y))
     #cost = tf.reduce_mean(-tf.reduce_sum(y*tf.log(pred), reduction_indices=1))
-    #optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost,global_step)
-    optimizer = tf.train.MomentumOptimizer(0.01,0.97).minimize(cost)
+    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost,global_step)
+    #optimizer = tf.train.MomentumOptimizer(0.01,0.97).minimize(cost)
     #optimizer = tf.train.GradientDescentOptimizer(1e-1).minimize(cost)
 
 
@@ -192,7 +192,7 @@ def train(args):
             summary_writer = tf.summary.FileWriter('tflogs', graph=sess.graph)
             summary_op = tf.summary.merge_all()
         else:
-            sess.run(tf.initialize_local_variables())
+            sess.run( tf.initialize_local_variables() )
             summary_writer = tf.train.SummaryWriter('tflogs', graph=sess.graph)
             summary_op = tf.merge_all_summaries()
 
